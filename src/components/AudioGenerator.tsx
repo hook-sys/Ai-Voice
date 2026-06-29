@@ -1,15 +1,23 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
   Upload, 
   FileText, 
   Play, 
+  Pause,
   Sparkles, 
   Loader2, 
   AlertCircle, 
   X, 
   CheckCircle2, 
   AudioLines,
-  Clipboard
+  Clipboard,
+  Sliders,
+  SlidersHorizontal,
+  Download,
+  Volume2,
+  Calendar,
+  Music,
+  Settings
 } from "lucide-react";
 import { VoiceId, VoiceProfile } from "../types";
 import { VOICE_PROFILES, createMp3EncoderWorker, arrayBufferToBase64 } from "../utils";
@@ -33,6 +41,13 @@ export default function AudioGenerator({
   const [genderFilter, setGenderFilter] = useState<"All" | "Female" | "Male">("All");
   const [categoryFilter, setCategoryFilter] = useState<"All" | "ads" | "story" | "news" | "casual" | "motivational">("All");
   
+  // Custom ElevenLabs-Style Slider Settings
+  const [stability, setStability] = useState(0.75);
+  const [clarity, setClarity] = useState(0.75);
+  const [styleExaggeration, setStyleExaggeration] = useState(0.75);
+  const [speed, setSpeed] = useState(1.0);
+  const [showSettings, setShowSettings] = useState(false);
+
   // Statuses
   const [isDragging, setIsDragging] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -40,8 +55,41 @@ export default function AudioGenerator({
   const [workerProgress, setWorkerProgress] = useState(0);
   const [previewingVoice, setPreviewingVoice] = useState<VoiceId | null>(null);
 
+  // Latest Generated Audio Item (Direct Client Preview)
+  const [latestItem, setLatestItem] = useState<{
+    id: string;
+    text: string;
+    voiceId: VoiceId;
+    voiceName: string;
+    wavBase64: string;
+    mp3Base64?: string;
+    createdAt: string;
+    speed: number;
+  } | null>(null);
+
+  const [isPlayingLatest, setIsPlayingLatest] = useState(false);
+  const [latestDuration, setLatestDuration] = useState(0);
+  const [latestCurrentTime, setLatestCurrentTime] = useState(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const latestAudioRef = useRef<HTMLAudioElement | null>(null);
+  const latestProgressRef = useRef<HTMLInputElement | null>(null);
+
+  // Cleanup audios on unmount
+  useEffect(() => {
+    return () => {
+      if (previewAudioRef.current) previewAudioRef.current.pause();
+      if (latestAudioRef.current) latestAudioRef.current.pause();
+    };
+  }, []);
+
+  // Sync playback rate if playing latest item
+  useEffect(() => {
+    if (latestAudioRef.current && latestItem) {
+      latestAudioRef.current.playbackRate = latestItem.speed;
+    }
+  }, [latestItem?.speed]);
 
   // Sample texts for previewing voices
   const PREVIEW_TEXTS: Record<VoiceId, string> = {
@@ -51,7 +99,7 @@ export default function AudioGenerator({
     Charon: "নমস্কার, আমি শরিফ। গভীর গম্ভীরতা এবং ভাবপূর্ণ উচ্চারণে আপনার প্রামাণ্যচিত্র বা অডিওবুক সাজাব।",
     Hermes: "হ্যালো বন্ধু, আমি সৌম্য। কোনো ফর্মালিটি ছাড়াই খুব সহজ ও ঘরোয়া পডকাস্টের জন্য আমার কণ্ঠ মানানসই।",
     Aoede: "নমস্কার, আমি অনন্যা। গভীর আবেগ এবং শৈল্পিক সুরের সাথে কবিতা আবৃত্তি বা নাটক পাঠ করতে পারি।",
-    Fenrir: "স্বাগতম, আমি রিপন। যেকোনো গুরুত্বপূর্ণ ঘোষণা বা মোটিভেশনাল স্পিচ দিতে আমি প্রস্তুত।",
+    Fenrir: "স্বাগতম, আমি রিপন। যেকোনো গুরুত্বপূর্ণ ঘোষণা বা মোティブেশনাল স্পিচ দিতে আমি প্রস্তুত।",
     Anemone: "শুভ দিন, আমি নাবিলা। পরম শান্ত ও প্রশান্তিদায়ক কণ্ঠে আপনার গাইডেড মেডিটেশন উপস্থাপন করব।"
   };
 
@@ -186,7 +234,13 @@ export default function AudioGenerator({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: text.trim(),
-          voice: selectedVoice
+          voice: selectedVoice,
+          settings: {
+            speed,
+            stability,
+            clarity,
+            styleExaggeration
+          }
         }),
       });
 
@@ -216,8 +270,37 @@ export default function AudioGenerator({
         } else if (msg.type === "done") {
           const mp3Base64 = arrayBufferToBase64(msg.arrayBuffer);
           
+          // Propagate to history tab
           onAudioGenerated(text.trim(), selectedVoice, wavData, mp3Base64);
-          triggerNotification("কণ্ঠস্বর সফলভাবে তৈরি এবং ডাউনলোডযোগ্য করা হয়েছে!", "success");
+
+          // Instantiate locally inside Generator Tab so the user has the file right here!
+          const newItem = {
+            id: Math.random().toString(36).substring(2, 11),
+            text: text.trim(),
+            voiceId: selectedVoice,
+            voiceName: currentProfile?.banglaName || selectedVoice,
+            wavBase64: wavData,
+            mp3Base64: mp3Base64,
+            createdAt: new Date().toLocaleTimeString("bn-BD", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true
+            }),
+            speed: speed
+          };
+
+          setLatestItem(newItem);
+          
+          // Stop old player if playing
+          if (latestAudioRef.current) {
+            latestAudioRef.current.pause();
+            latestAudioRef.current = null;
+          }
+          setIsPlayingLatest(false);
+          setLatestCurrentTime(0);
+          setLatestDuration(0);
+
+          triggerNotification("কণ্ঠস্বর সফলভাবে তৈরি হয়েছে! নিচে সরাসরি শুনুন ও ডাউনলোড করুন।", "success");
           cleanupGeneration();
           encoderWorker.terminate();
         } else if (msg.type === "error") {
@@ -225,6 +308,22 @@ export default function AudioGenerator({
           triggerNotification("MP3 রূপান্তরে ব্যাকগ্রাউন্ড সমস্যা হয়েছে। শুধুমাত্র WAV সংরক্ষণ করা হলো।", "info");
           
           onAudioGenerated(text.trim(), selectedVoice, wavData);
+
+          const newItem = {
+            id: Math.random().toString(36).substring(2, 11),
+            text: text.trim(),
+            voiceId: selectedVoice,
+            voiceName: currentProfile?.banglaName || selectedVoice,
+            wavBase64: wavData,
+            createdAt: new Date().toLocaleTimeString("bn-BD", {
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true
+            }),
+            speed: speed
+          };
+          setLatestItem(newItem);
+
           cleanupGeneration();
           encoderWorker.terminate();
         }
@@ -243,6 +342,99 @@ export default function AudioGenerator({
     setWorkerProgress(0);
   };
 
+  // Playback control for the local "Latest Item"
+  const handlePlayPauseLatest = () => {
+    if (!latestItem) return;
+
+    if (isPlayingLatest) {
+      latestAudioRef.current?.pause();
+      setIsPlayingLatest(false);
+    } else {
+      if (!latestAudioRef.current) {
+        const audioSrc = latestItem.mp3Base64 
+          ? `data:audio/mp3;base64,${latestItem.mp3Base64}` 
+          : `data:audio/wav;base64,${latestItem.wavBase64}`;
+        
+        const newAudio = new Audio(audioSrc);
+        latestAudioRef.current = newAudio;
+
+        newAudio.addEventListener("loadedmetadata", () => {
+          setLatestDuration(newAudio.duration);
+        });
+
+        newAudio.addEventListener("timeupdate", () => {
+          setLatestCurrentTime(newAudio.currentTime);
+        });
+
+        newAudio.addEventListener("ended", () => {
+          setIsPlayingLatest(false);
+          setLatestCurrentTime(0);
+        });
+      }
+
+      if (latestAudioRef.current) {
+        latestAudioRef.current.playbackRate = latestItem.speed;
+        latestAudioRef.current.play().then(() => {
+          setIsPlayingLatest(true);
+        }).catch((err) => {
+          console.error("Playback failed:", err);
+          triggerNotification("প্লেব্যাকের সময় সমস্যা হয়েছে।", "error");
+        });
+      }
+    }
+  };
+
+  const handleSeekLatest = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const seekTime = parseFloat(e.target.value);
+    if (latestAudioRef.current) {
+      latestAudioRef.current.currentTime = seekTime;
+      setLatestCurrentTime(seekTime);
+    }
+  };
+
+  // File Download Helper
+  const downloadFile = (base64Data: string, mimeType: string, filename: string) => {
+    try {
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      triggerNotification("ডাউনলোড শুরু করা সম্ভব হয়নি।", "error");
+    }
+  };
+
+  const handleDownloadLatestWav = () => {
+    if (!latestItem) return;
+    downloadFile(latestItem.wavBase64, "audio/wav", `bangla_voice_${latestItem.voiceId}_latest.wav`);
+    triggerNotification("WAV (স্টুডিও লসলেস) ডাউনলোড সম্পন্ন!", "success");
+  };
+
+  const handleDownloadLatestMp3 = () => {
+    if (!latestItem || !latestItem.mp3Base64) return;
+    downloadFile(latestItem.mp3Base64, "audio/mp3", `bangla_voice_${latestItem.voiceId}_latest.mp3`);
+    triggerNotification("MP3 (উচ্চ সামঞ্জস্যপূর্ণ) ডাউনলোড সম্পন্ন!", "success");
+  };
+
+  const formatTime = (secs: number) => {
+    if (isNaN(secs)) return "0:00";
+    const minutes = Math.floor(secs / 60);
+    const seconds = Math.floor(secs % 60);
+    return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+  };
+
   // Comprehensive filters for Category & Gender
   const filteredVoices = VOICE_PROFILES.filter((voice) => {
     const matchesGender = genderFilter === "All" || voice.gender === genderFilter;
@@ -253,7 +445,7 @@ export default function AudioGenerator({
   return (
     <div className="space-y-8" id="audio-generator-module">
       
-      {/* Prime Focus Textbox & Controls (No confusing drag/drop as primary layout) */}
+      {/* Prime Focus Textbox & Controls */}
       <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <label className="text-sm font-bold text-gray-900 dark:text-zinc-100 flex items-center gap-2">
@@ -267,7 +459,7 @@ export default function AudioGenerator({
               onClick={handlePasteFromClipboard}
               id="clipboard-paste-btn"
               type="button"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 border border-indigo-100 dark:border-indigo-900/30 transition-all cursor-pointer shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 border border-indigo-100 dark:border-indigo-900/30 transition-all cursor-pointer shadow-sm animate-fadeIn"
               title="Click to paste text from your clipboard"
             >
               <Clipboard className="w-3.5 h-3.5" />
@@ -287,7 +479,7 @@ export default function AudioGenerator({
           </div>
         </div>
 
-        {/* Textarea wrapped in a clean container that STILL supports drag-and-drop if they wish */}
+        {/* Textarea wrapped in a clean container */}
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -327,7 +519,7 @@ export default function AudioGenerator({
           {text && (
             <button
               onClick={() => setText("")}
-              className="absolute top-4 right-4 p-1.5 rounded-full bg-gray-200 dark:bg-zinc-800 text-gray-500 hover:text-red-500 transition-colors"
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-gray-200 dark:bg-zinc-800 text-gray-500 hover:text-red-500 transition-colors cursor-pointer"
               title="Clear Text"
               id="clear-text-btn"
             >
@@ -487,11 +679,143 @@ export default function AudioGenerator({
             <Sparkles className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-semibold text-gray-900 dark:text-zinc-200">
-                নির্বাচিত ভয়েজ আর্টিস্ট: {currentProfile.banglaName} ({currentProfile.gender})
+                নির্зоваিত ভয়েজ আর্টিস্ট: {currentProfile.banglaName} ({currentProfile.gender})
               </p>
               <p className="text-xs text-gray-500 dark:text-zinc-400 mt-1">
                 {currentProfile.description}
               </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ElevenLabs-Style Advanced Customization Sliders */}
+      <div className="bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          id="toggle-elevenlabs-settings"
+          type="button"
+          className="w-full flex items-center justify-between text-left cursor-pointer"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl">
+              <Sliders className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-zinc-100 flex items-center gap-1.5">
+                ১১ল্যাবস-স্টাইল ভয়েস কাস্টমাইজেশন (ElevenLabs Settings)
+                <span className="text-[10px] px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded font-normal">Advanced AI Controls</span>
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-zinc-400 mt-0.5">
+                কণ্ঠস্বরের স্থিতিশীলতা, স্পষ্টতা, গতি ও অনন্য ব্যক্তিত্বের মাত্রা টিউন করুন
+              </p>
+            </div>
+          </div>
+          <span className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
+            showSettings 
+              ? "bg-gray-100 dark:bg-zinc-850 border-gray-200 dark:border-zinc-700 text-gray-800 dark:text-zinc-200" 
+              : "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-100 dark:border-indigo-900/30 text-indigo-600 dark:text-indigo-400"
+          }`}>
+            {showSettings ? "লুকিয়ে রাখুন (Hide)" : "সেটিংস দেখান (Show)"}
+          </span>
+        </button>
+
+        {showSettings && (
+          <div className="mt-6 pt-6 border-t border-gray-100 dark:border-zinc-850/50 space-y-6 animate-fadeIn">
+            {/* Stability */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs sm:text-sm font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-1.5">
+                  স্থিতিশীলতা (Stability): <span className="text-indigo-600 dark:text-indigo-400 font-mono font-bold">{(stability * 100).toFixed(0)}%</span>
+                </label>
+                <span className="text-[10px] text-gray-400 dark:text-zinc-500">ডিফল্ট: ৭৫%</span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={stability}
+                onChange={(e) => setStability(parseFloat(e.target.value))}
+                className="w-full accent-indigo-600 h-1.5 bg-gray-100 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                id="stability-slider"
+              />
+              <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-zinc-500 font-medium">
+                <span>আবেগপ্রবণ ও পরিবর্তনশীল (More Expressive / Dramatic)</span>
+                <span>স্থির ও প্রফেশনাল (More Stable / Formal)</span>
+              </div>
+            </div>
+
+            {/* Clarity / Similarity */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs sm:text-sm font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-1.5">
+                  স্পষ্টতা ও প্রমিত উচ্চারণ (Clarity + Accent): <span className="text-indigo-600 dark:text-indigo-400 font-mono font-bold">{(clarity * 100).toFixed(0)}%</span>
+                </label>
+                <span className="text-[10px] text-gray-400 dark:text-zinc-500">ডিফল্ট: ৭৫%</span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={clarity}
+                onChange={(e) => setClarity(parseFloat(e.target.value))}
+                className="w-full accent-indigo-600 h-1.5 bg-gray-100 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                id="clarity-slider"
+              />
+              <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-zinc-500 font-medium">
+                <span>সাধারণ/ক্যাজুয়াল কথ্য ভাষা (Relaxed Colloquial Flow)</span>
+                <span>নিখুঁত ও স্পষ্ট স্ট্যান্ডার্ড উচ্চারণ (Ultra Crisp articulation)</span>
+              </div>
+            </div>
+
+            {/* Style Exaggeration */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs sm:text-sm font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-1.5">
+                  স্টাইল তীব্রতা / আবেগ (Style Exaggeration): <span className="text-indigo-600 dark:text-indigo-400 font-mono font-bold">{(styleExaggeration * 100).toFixed(0)}%</span>
+                </label>
+                <span className="text-[10px] text-gray-400 dark:text-zinc-500">ডিফল্ট: ৭৫%</span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={styleExaggeration}
+                onChange={(e) => setStyleExaggeration(parseFloat(e.target.value))}
+                className="w-full accent-indigo-600 h-1.5 bg-gray-100 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                id="style-exaggeration-slider"
+              />
+              <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-zinc-500 font-medium">
+                <span>শান্ত ও সরাসরি (Quiet / Direct)</span>
+                <span>আর্টিস্টিক ও গভীর ব্যক্তিত্ব (Highly Styled Signature Delivery)</span>
+              </div>
+            </div>
+
+            {/* Speaking Rate / Speed */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs sm:text-sm font-bold text-gray-800 dark:text-zinc-200 flex items-center gap-1.5">
+                  কথা বলার গতি (Speed Rate): <span className="text-indigo-600 dark:text-indigo-400 font-mono font-bold">{speed.toFixed(2)}x</span>
+                </label>
+                <span className="text-[10px] text-gray-400 dark:text-zinc-500">ডিফল্ট: ১.০x</span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="2.0"
+                step="0.1"
+                value={speed}
+                onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                className="w-full accent-indigo-600 h-1.5 bg-gray-100 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer"
+                id="speed-slider"
+              />
+              <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-zinc-500 font-medium">
+                <span>ধীরগতির (0.5x Slower)</span>
+                <span>দ্রুতগতির (2.0x Faster)</span>
+              </div>
             </div>
           </div>
         )}
@@ -532,7 +856,7 @@ export default function AudioGenerator({
 
             <p className="text-xs text-center text-gray-400 dark:text-zinc-500 leading-relaxed">
               {generationPhase === "gemini" && "Gemini 3.1-TTS AI বাংলায় প্রাকৃতিক উচ্চারণে আপনার কথা সাজাচ্ছে।"}
-              {generationPhase === "wav" && "লপলেস স্টুডিও ফরম্যাটে অডিও রেন্ডার সম্পন্ন হচ্ছে।"}
+              {generationPhase === "wav" && "লসলেস স্টুডিও ফরম্যাটে অডিও রেন্ডার সম্পন্ন হচ্ছে।"}
               {generationPhase === "mp3" && "একটি ডেডিকেটেড ব্যাকগ্রাউন্ড ওয়েব ওয়ার্কার আপনার MP3 কম্প্রেস করছে যাতে ইউআই আটকে না যায়।"}
             </p>
           </div>
@@ -552,6 +876,126 @@ export default function AudioGenerator({
           </button>
         )}
       </div>
+
+      {/* RECENTLY GENERATED FILE PLAYER (Solves: 'file pacchi na, file gula akhnae thakbe') */}
+      {latestItem && (
+        <div 
+          id="latest-generated-card" 
+          className="bg-gradient-to-tr from-indigo-900 to-slate-900 border border-indigo-500/30 dark:border-indigo-500/20 rounded-2xl p-6 text-white shadow-xl animate-slideIn relative overflow-hidden"
+        >
+          {/* Wave background pattern accent */}
+          <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none transform translate-x-10 -translate-y-10">
+            <Volume2 className="w-full h-full text-white" />
+          </div>
+
+          <div className="flex items-center justify-between gap-3 mb-4 border-b border-indigo-800/60 pb-3">
+            <div className="flex items-center gap-2.5">
+              <span className="p-1.5 bg-indigo-500/20 rounded-lg text-indigo-300">
+                <Music className="w-5 h-5" />
+              </span>
+              <div>
+                <h3 className="font-sans font-extrabold text-sm sm:text-base text-indigo-100">
+                  সদ্য তৈরি ভয়েস ফাইল (Latest Generated Audio)
+                </h3>
+                <p className="text-[10px] text-indigo-300 font-medium mt-0.5">
+                  আর্টিস্ট: {latestItem.voiceName} • {latestItem.createdAt}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setLatestItem(null)}
+              className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-indigo-300 hover:text-white transition-all cursor-pointer"
+              title="Close Player"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Text Script Preview */}
+          <div className="bg-indigo-950/40 border border-indigo-800/40 rounded-xl p-4 mb-5">
+            <p className="text-xs text-indigo-200 uppercase font-mono tracking-wider mb-1">স্ক্রিপ্ট:</p>
+            <p className="text-sm text-indigo-50 leading-relaxed font-medium">
+              {latestItem.text}
+            </p>
+          </div>
+
+          {/* Audio Player */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 bg-indigo-950/60 border border-indigo-800/40 rounded-xl px-4 py-3">
+              {/* Play / Pause button */}
+              <button
+                onClick={handlePlayPauseLatest}
+                id="play-latest-btn"
+                className="w-10 h-10 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white flex items-center justify-center shrink-0 transition-all shadow-md cursor-pointer hover:scale-105"
+                title="Play generated voice"
+              >
+                {isPlayingLatest ? (
+                  <Pause className="w-4 h-4 fill-current" />
+                ) : (
+                  <Play className="w-4 h-4 fill-current ml-0.5" />
+                )}
+              </button>
+
+              <div className="flex-grow flex items-center gap-3">
+                <span className="text-[11px] font-mono text-indigo-300">
+                  {formatTime(latestCurrentTime)}
+                </span>
+                
+                <input
+                  type="range"
+                  ref={latestProgressRef}
+                  min={0}
+                  max={latestDuration || 0}
+                  value={latestCurrentTime}
+                  onChange={handleSeekLatest}
+                  className="flex-grow accent-indigo-400 h-1 bg-indigo-950 rounded-lg appearance-none cursor-pointer"
+                />
+
+                <span className="text-[11px] font-mono text-indigo-300">
+                  {formatTime(latestDuration)}
+                </span>
+              </div>
+
+              {/* Dynamic Speed display badge */}
+              <span className="text-[10px] font-bold px-2 py-1 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+                {latestItem.speed.toFixed(1)}x
+              </span>
+            </div>
+
+            {/* Direct Downloads Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+              <span className="text-[11px] text-indigo-300/80 font-medium">
+                ফাইলটি আপনার পিসিতে ডাউনলোড করতে নিচের বাটনে ক্লিক করুন:
+              </span>
+
+              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <button
+                  onClick={handleDownloadLatestWav}
+                  id="download-latest-wav"
+                  className="flex-grow sm:flex-grow-0 flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl bg-white text-indigo-950 hover:bg-indigo-50 transition-all cursor-pointer shadow-md"
+                  title="Download studio quality WAV file"
+                >
+                  <Download className="w-4 h-4" />
+                  WAV (লসলেস ডাউনলোড)
+                </button>
+
+                {latestItem.mp3Base64 && (
+                  <button
+                    onClick={handleDownloadLatestMp3}
+                    id="download-latest-mp3"
+                    className="flex-grow sm:flex-grow-0 flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 border border-indigo-500/30 transition-all cursor-pointer shadow-md"
+                    title="Download compatible light MP3 file"
+                  >
+                    <Download className="w-4 h-4" />
+                    MP3 (লাইট ডাউনলোড)
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
