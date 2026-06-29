@@ -1,4 +1,4 @@
-export type VoiceId = "Zephyr" | "Kore" | "Puck" | "Charon" | "Fenrir" | "Aoede" | "Anemone" | "Hermes";
+export type VoiceId = string;
 
 export interface VoiceProfile {
   id: VoiceId;

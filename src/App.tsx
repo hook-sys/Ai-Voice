@@ -134,6 +134,7 @@ export default function App() {
   const [showCloneModal, setShowCloneModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showApiKeysModal, setShowApiKeysModal] = useState(false);
+  const [testingVoiceId, setTestingVoiceId] = useState<string | null>(null);
 
   // Background Cloned Voices (Simulated addition)
   const [clonedVoices, setClonedVoices] = useState<{name: string, gender: string}[]>([]);
@@ -416,6 +417,12 @@ export default function App() {
               setHistoryItems((prev) => prev.map((hi) => hi.id === item.id ? { ...hi, wavBase64: data.wavData, mp3Base64: base64Mp3 } : hi));
             }
           };
+        } else {
+          const errData = await response.json();
+          triggerNotification(errData.error || "অডিও প্লে করতে সমস্যা হয়েছে।", "error");
+          setIsGenerating(false);
+          setGenerationPhase("none");
+          return;
         }
       } catch (err) {
         console.error(err);
@@ -587,10 +594,13 @@ export default function App() {
   // Preview custom artist directly from Voice Library Card
   const handleTestVoiceSample = async (voiceId: VoiceId, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (testingVoiceId) return;
+    
+    setTestingVoiceId(voiceId);
     triggerNotification(`${voiceId} টেস্ট করার জন্য অডিও রেন্ডার করা হচ্ছে...`, "info");
     
     try {
-      const sampleTexts: Record<VoiceId, string> = {
+      const sampleTexts: Record<string, string> = {
         Puck: "হ্যালো, আমি রাহাত। আমি খুব উদ্যমী এবং বিজ্ঞাপনের জন্য উপযুক্ত কণ্ঠস্বর।",
         Charon: "নমস্কার, আমি শরিফ। গভীর গম্ভীর ভাবপূর্ণ উচ্চারণে আপনার প্রামাণ্যচিত্র সাজাব।",
         Hermes: "হ্যালো বন্ধু, আমি সৌম্য। পডকাস্টের জন্য খুব সাধারণ ও ঘরোয়া কথা বলছি।",
@@ -601,11 +611,19 @@ export default function App() {
         Anemone: "শুভ দিন, আমি নাবিলা। পরম শান্ত ও প্রশান্তিদায়ক কণ্ঠে মেডিটেশন উপস্থাপন করব।"
       };
 
+      let textToUse = sampleTexts[voiceId];
+      if (!textToUse) {
+        const profile = VOICE_PROFILES.find((v) => v.id === voiceId);
+        const name = profile?.name || "শিল্পী";
+        const dialectName = profile?.banglaCategory || "আঞ্চলিক ভাষা";
+        textToUse = `নমস্কার, আমি ${name}। আমি ${dialectName} টানে কথা বলছি। কেমন আছেন আপনি?`;
+      }
+
       const response = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: sampleTexts[voiceId],
+          text: textToUse,
           voice: voiceId,
           settings: { speed: 1.0, pitch: "Medium", emotion: "Neutral" }
         })
@@ -629,7 +647,7 @@ export default function App() {
 
         setCurrentAudioItem({
           id: `sample-${voiceId}`,
-          text: sampleTexts[voiceId],
+          text: textToUse,
           voiceId,
           voiceName: `${label} (${profile?.name || voiceId})`,
           wavBase64: wavData,
@@ -641,9 +659,14 @@ export default function App() {
 
         setIsPlaying(true);
         triggerNotification(`আর্টিস্ট ${profile?.banglaName || voiceId} এর ভয়েস চালু হয়েছে।`, "success");
+      } else {
+        const errorData = await response.json();
+        triggerNotification(errorData.error || "টেস্ট ভয়েস জেনারেট করতে সমস্যা হয়েছে।", "error");
       }
     } catch (err) {
       triggerNotification("টেস্ট ভয়েস চালু করতে সমস্যা হয়েছে।", "error");
+    } finally {
+      setTestingVoiceId(null);
     }
   };
 
@@ -1115,7 +1138,7 @@ export default function App() {
                 </div>
 
                 {inputTextTab === "type" ? (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <label className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">বাংলা টেক্সট স্ক্রিপ্ট</label>
                     <div className="relative">
                       <textarea
@@ -1128,6 +1151,13 @@ export default function App() {
                       <span className="absolute bottom-3.5 right-3.5 text-[9px] font-mono text-zinc-500">
                         {text.length} / 5000
                       </span>
+                    </div>
+                    
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[10px] text-amber-300 flex items-start gap-2 leading-relaxed">
+                      <span className="text-xs">⚠️</span>
+                      <div>
+                        <strong>কোটা লিমিট (API Quota Limit):</strong> আপনি যদি 429 Quota Error পান, তার মানে Gemini TTS-এর ফ্রি লিমিট (দৈনিক ১০টি রিকোয়েস্ট) শেষ হয়ে গেছে। দয়া করে আপনার নিজের API Key সেটআপ করতে <strong>Settings &gt; Secrets</strong> মেনু ব্যবহার করুন।
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -1894,11 +1924,17 @@ export default function App() {
                       >
                         {/* Avatar Image + Voice tag details */}
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <img
-                            src={VOICE_IMAGES[voice.id]}
-                            alt={voice.name}
-                            className="w-9 h-9 rounded-full object-cover border border-indigo-500/15"
-                          />
+                          {VOICE_IMAGES[voice.id] ? (
+                            <img
+                              src={VOICE_IMAGES[voice.id]}
+                              alt={voice.name}
+                              className="w-9 h-9 rounded-full object-cover border border-indigo-500/15"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold text-xs shrink-0 select-none">
+                              {voice.avatarText || voice.name.slice(0, 2)}
+                            </div>
+                          )}
                           <div className="text-left min-w-0">
                             <h4 className="text-xs font-black text-white leading-tight truncate">
                               {avLabel}
@@ -1925,10 +1961,22 @@ export default function App() {
                           {/* Preview Play audio circle icon */}
                           <button
                             onClick={(e) => handleTestVoiceSample(voice.id, e)}
-                            className="w-6.5 h-6.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 hover:bg-indigo-600 hover:text-white transition-all cursor-pointer"
-                            title="Play sample"
+                            disabled={testingVoiceId !== null}
+                            className={`w-6.5 h-6.5 rounded-full border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                              testingVoiceId === voice.id 
+                                ? "bg-amber-500/20 border-amber-500/30 text-amber-400 cursor-wait animate-pulse" 
+                                : "bg-indigo-500/10 border-indigo-500/20 text-indigo-400 hover:bg-indigo-600 hover:text-white"
+                            }`}
+                            title={testingVoiceId === voice.id ? "লোডিং হচ্ছে..." : "Play sample"}
                           >
-                            <Play className="w-3 h-3 fill-current ml-0.5" />
+                            {testingVoiceId === voice.id ? (
+                              <svg className="animate-spin w-3.5 h-3.5 text-amber-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                            ) : (
+                              <Play className="w-3 h-3 fill-current ml-0.5" />
+                            )}
                           </button>
                         </div>
 

@@ -3,6 +3,8 @@ import path from "path";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
+import crypto from "crypto";
+import fs from "fs";
 
 dotenv.config();
 
@@ -10,6 +12,20 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json({ limit: "10mb" }));
+
+// Setup file-based caching directory for TTS audio files to save free quota (10 requests/day)
+const CACHE_DIR = path.join(process.cwd(), "tts-cache");
+if (!fs.existsSync(CACHE_DIR)) {
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
+}
+
+function getCacheFilename(text: string, voice: string, settings: any): string {
+  const normalizedText = text.trim();
+  const serializedSettings = JSON.stringify(settings || {});
+  const dataToHash = `${normalizedText}|${voice}|${serializedSettings}`;
+  const hash = crypto.createHash("sha256").update(dataToHash).digest("hex");
+  return path.join(CACHE_DIR, `${hash}.json`);
+}
 
 // Initialize the Gemini API client
 const ai = new GoogleGenAI({
@@ -72,7 +88,190 @@ app.post("/api/tts", async (req, res) => {
   }
 
   const selectedVoice = voice || "Zephyr";
-  
+
+  const cachePath = getCacheFilename(text, selectedVoice, settings);
+  if (fs.existsSync(cachePath)) {
+    try {
+      const cachedData = JSON.parse(fs.readFileSync(cachePath, "utf-8"));
+      console.log(`[Cache Hit] Serving audio from cache for voice: ${selectedVoice}`);
+      res.json(cachedData);
+      return;
+    } catch (e) {
+      console.error("Failed to read TTS cache:", e);
+    }
+  }
+
+  let baseVoice = selectedVoice;
+  let dialectPrompt = "";
+  let textToSpeak = text;
+
+  if (selectedVoice.startsWith("Pro_")) {
+    const voiceMapping: Record<string, { base: string, instruction: string }> = {
+      Pro_Female_1: {
+        base: "Kore",
+        instruction: "You are Sultana, a highly professional Bengali female news anchor. Speak with clear standard pronunciation, formal tone, excellent articulation, and newsroom pacing."
+      },
+      Pro_Male_1: {
+        base: "Charon",
+        instruction: "You are Mansur, a professional male voiceover artist with a deep and authoritative voice. Deliver the text with standard news anchor pacing and serious formal tone."
+      },
+      Pro_Female_2: {
+        base: "Zephyr",
+        instruction: "You are Farhana, an educational tutor. Deliver in a clear, friendly, structured, and easy-to-follow female voice, perfect for student lectures and online courses."
+      },
+      Pro_Male_2: {
+        base: "Hermes",
+        instruction: "You are Zubair, an e-learning training specialist. Speak in an encouraging, clear, and perfectly spaced male voice, ideal for professional tutorials."
+      },
+      Pro_Female_3: {
+        base: "Kore",
+        instruction: "You are Tasnim, a corporate female presenter. Speak with business-like confidence, professional clarity, and modern presentation style."
+      },
+      Pro_Male_3: {
+        base: "Puck",
+        instruction: "You are Riaz, a male corporate board presenter. Speak with peak professionalism, professional authority, and confident corporate pacing."
+      },
+      Pro_Female_4: {
+        base: "Anemone",
+        instruction: "You are Nusrat, a polite customer service agent. Speak in a helpful, warm, gentle, and highly supportive female voice."
+      },
+      Pro_Male_4: {
+        base: "Hermes",
+        instruction: "You are Sajid, a polite male customer support executive. Speak with a friendly, helpful, respectful, and smooth tone."
+      },
+      Pro_Female_5: {
+        base: "Zephyr",
+        instruction: "You are Israt, a professional commercial ad voiceover female artist. Deliver with highly persuasive charm, exciting energy, and modern radio style."
+      },
+      Pro_Male_5: {
+        base: "Puck",
+        instruction: "You are Tanvir, an energetic male advertisement voiceover artist. Deliver with enthusiastic, punchy, persuasive, and dynamic brand energy."
+      },
+      Pro_Female_6: {
+        base: "Aoede",
+        instruction: "You are Afsana, a literary voice artist. Deliver with artistic sensitivity, deep emotion, and poetic rhythm, perfect for high literature and drama."
+      },
+      Pro_Male_6: {
+        base: "Charon",
+        instruction: "You are Mahbub, an expert poetry reciter. Speak with deep dramatic resonance, theatrical modulation, and artistic pause styling."
+      },
+      Pro_Female_7: {
+        base: "Aoede",
+        instruction: "You are Mehnaz, a documentary female narrator. Deliver with deep narration pacing, natural warmth, and informative authority."
+      },
+      Pro_Male_7: {
+        base: "Charon",
+        instruction: "You are Kibriya, a male documentary narrator. Speak with a profound, deep, historical, and intellectual tone."
+      },
+      Pro_Female_8: {
+        base: "Zephyr",
+        instruction: "You are Sadia, a conversational female podcaster. Speak in a casual, daily-life, friendly, and completely natural tone."
+      },
+      Pro_Male_8: {
+        base: "Hermes",
+        instruction: "You are Adnan, a casual male talk show host. Speak in a relaxed, friendly, and relatable conversational pacing."
+      },
+      Pro_Female_9: {
+        base: "Anemone",
+        instruction: "You are Monira, a meditation guide. Speak in an exceptionally quiet, slow-paced, soothing, and serene whisper-like voice."
+      },
+      Pro_Male_9: {
+        base: "Fenrir",
+        instruction: "You are Zahid, a passionate motivational speaker. Speak with high-intensity inspiration, high-spirit, and empowering masculine energy."
+      },
+      Pro_Female_10: {
+        base: "Aoede",
+        instruction: "You are Jannat, a childrens story narrator. Speak in a playful, lively, expressive, and magical sweet tone."
+      },
+      Pro_Male_10: {
+        base: "Charon",
+        instruction: "You are Ashraf, a suspense/thriller narrator. Speak with a low, tense, thrilling, dramatic, and highly engaging tone."
+      }
+    };
+
+    const config = voiceMapping[selectedVoice];
+    if (config) {
+      baseVoice = config.base;
+      dialectPrompt = config.instruction;
+    }
+  } else if (selectedVoice.includes("_")) {
+    const isFemale = selectedVoice.toLowerCase().includes("female");
+    if (isFemale) {
+      if (selectedVoice.includes("story")) {
+        baseVoice = "Aoede";
+      } else if (selectedVoice.includes("ads")) {
+        baseVoice = "Kore";
+      } else {
+        baseVoice = "Zephyr";
+      }
+    } else {
+      if (selectedVoice.includes("story")) {
+        baseVoice = "Charon";
+      } else if (selectedVoice.includes("ads")) {
+        baseVoice = "Fenrir";
+      } else {
+        baseVoice = "Hermes";
+      }
+    }
+
+    let dialectName = "";
+    if (selectedVoice.startsWith("Noakhali")) {
+      dialectName = "Noakhali regional dialect (নোয়াখালীর আঞ্চলিক ভাষা)";
+    } else if (selectedVoice.startsWith("Chittagong")) {
+      dialectName = "Chittagong regional dialect (চাটগাঁইয়া আঞ্চলিক ভাষা)";
+    } else if (selectedVoice.startsWith("Sylhet")) {
+      dialectName = "Sylhet regional dialect (সিলেটি আঞ্চলিক ভাষা)";
+    } else if (selectedVoice.startsWith("Barisal")) {
+      dialectName = "Barisal regional dialect (বরিশালের আঞ্চলিক ভাষা)";
+    } else if (selectedVoice.startsWith("Comilla")) {
+      dialectName = "Comilla regional dialect (কুমিল্লার আঞ্চলিক ভাষা)";
+    } else if (selectedVoice.startsWith("Dhaka")) {
+      dialectName = "Old Dhaka dialect (পুরান ঢাকাইয়া কুত্তি ভাষা)";
+    } else if (selectedVoice.startsWith("Kolkata")) {
+      dialectName = "Kolkata accent/dialect (কলকাতার কথ্য বাংলা)";
+    } else if (selectedVoice.startsWith("Mymensingh")) {
+      dialectName = "Mymensingh regional dialect (ময়মনসিংহের আঞ্চলিক ভাষা)";
+    } else if (selectedVoice.startsWith("Khulna")) {
+      dialectName = "Khulna regional dialect (খুলনার আঞ্চলিক ভাষা)";
+    } else if (selectedVoice.startsWith("Rajshahi")) {
+      dialectName = "Rajshahi regional dialect (রাজশাহীর আঞ্চলিক ভাষা)";
+    } else if (selectedVoice.startsWith("Rangpur")) {
+      dialectName = "Rangpur regional dialect (রংপুরের বাহে আঞ্চলিক ভাষা)";
+    } else if (selectedVoice.startsWith("Jessore")) {
+      dialectName = "Jessore regional dialect (যশোরের আঞ্চলিক ভাষা)";
+    } else if (selectedVoice.startsWith("Midnapore")) {
+      dialectName = "Midnapore regional dialect (মেদিনীপুরের আঞ্চলিক ভাষা)";
+    } else if (selectedVoice.startsWith("Purulia")) {
+      dialectName = "Purulia regional dialect (পুরুলিয়ার আঞ্চলিক ভাষা)";
+    }
+
+    if (dialectName) {
+      dialectPrompt = `Speak strictly in the standard pronunciation of the following translated words in ${dialectName}.`;
+      try {
+        console.log(`Rewriting text to ${dialectName} using gemini-2.5-flash...`);
+        const rewriteResponse = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: `You are an expert linguist specializing in Bengali regional dialects and colloquial phonetics. 
+Translate and rewrite the following standard Bengali text into authentic, extremely natural, and pure ${dialectName}.
+Write the output using Bengali script, capturing the exact regional vocabulary, grammar, pronunciation, local idioms, and phonetic spelling of the dialect.
+For example, if Noakhali dialect is selected, rewrite 'পানি' as 'হানি', 'আমি' as 'আঁই', 'পাগল' as 'হাগল', and change standard sentence structures to natural Noakhali colloquial structures.
+Provide ONLY the translated regional text. Do not include any explanations, standard text, introduction, or markdown formatting.
+
+Standard Bengali Text: ${text}`
+        });
+
+        const rewritten = rewriteResponse.text?.trim();
+        if (rewritten) {
+          textToSpeak = rewritten;
+          console.log(`Original text: ${text}`);
+          console.log(`Rewritten text: ${textToSpeak}`);
+        }
+      } catch (err) {
+        console.error("Failed to rewrite text for dialect:", err);
+      }
+    }
+  }
+
   // Custom ElevenLabs-style modifiers
   const speed = settings?.speed !== undefined ? Number(settings.speed) : 1.0;
   const stability = settings?.stability !== undefined ? Number(settings.stability) : 0.75;
@@ -136,35 +335,25 @@ app.post("/api/tts", async (req, res) => {
   }
 
   // Custom persona-based instructions for professional, human-like, non-robotic Bengali voice delivery
-  let styledPrompt = `Say in clear Bengali/Bangla: ${text}`;
+  let styledPrompt = "";
   
-  switch (selectedVoice) {
-    case "Zephyr": // Tania
-      styledPrompt = `You are Tania, a professional Bengali/Bangla female voice artist. Speak the following text in a soft, warm, natural, and highly expressive tone, perfect for premium storytelling and narration. ${modifier} Avoid all robotic cadences, speak with human-like breathing pauses and standard pronunciation. Text: ${text}`;
-      break;
-    case "Kore": // Sabiha
-      styledPrompt = `You are Sabiha, a professional Bengali/Bangla female news anchor and corporate presenter. Read the following text in a crystal clear, highly precise, professional, and formal tone. ${modifier} Keep pronunciation absolutely standard and articulate every word clearly. Text: ${text}`;
-      break;
-    case "Puck": // Rahat
-      styledPrompt = `You are Rahat, an energetic, lively, and highly persuasive Bengali/Bangla male commercial voice artist. Read the following text with enthusiastic energy, friendly charm, and high confidence, perfect for commercial ads and announcements. ${modifier} Text: ${text}`;
-      break;
-    case "Charon": // Sharif
-      styledPrompt = `You are Sharif, a professional Bengali/Bangla male voice artist with a deep, rich, and highly resonant voice. Read the following text with profound depth, serious authority, and deliberate dramatic pauses, perfect for history documentaries or deep storytelling. ${modifier} Text: ${text}`;
-      break;
-    case "Hermes": // Soumya
-      styledPrompt = `You are Soumya, a warm, friendly, and completely casual Bengali/Bangla male podcaster. Speak the following text in a conversational, daily-life, natural, and friendly tone. ${modifier} Keep the cadence relaxed, warm, and highly relatable, like speaking to a friend. Text: ${text}`;
-      break;
-    case "Aoede": // Ananya
-      styledPrompt = `You are Ananya, a highly creative and emotional Bengali/Bangla female voice artist. Read the following text with deep artistic sensitivity, beautiful poetic modulation, and sweet emotional resonance, perfect for poetry recitation and dramatic stories. ${modifier} Text: ${text}`;
-      break;
-    case "Fenrir": // Ripon
-      styledPrompt = `You are Ripon, a highly powerful, bold, and motivational Bengali/Bangla male speaker. Read the following text with commanding passion, high energy, and inspiring confidence, perfect for public speeches and declarations. ${modifier} Text: ${text}`;
-      break;
-    case "Anemone": // Nabila
-      styledPrompt = `You are Nabila, a sweet, soft, and exceptionally soothing female Bengali/Bangla voice artist. Read the following text in a quiet, peaceful, slow-paced, and relaxing whisper-like voice, perfect for guided meditations and calming stories. ${modifier} Text: ${text}`;
-      break;
-    default:
-      styledPrompt = `Say in a clear and natural Bengali/Bangla human-like voice: ${text}`;
+  const voiceInstructions: Record<string, string> = {
+    Zephyr: "You are Tania, a professional Bengali/Bangla female voice artist. Speak in a soft, warm, natural, and highly expressive tone, perfect for premium storytelling and narration.",
+    Kore: "You are Sabiha, a professional Bengali/Bangla female news anchor and corporate presenter. Read in a crystal clear, highly precise, professional, and formal tone.",
+    Puck: "You are Rahat, an energetic, lively, and highly persuasive Bengali/Bangla male commercial voice artist. Read with enthusiastic energy, friendly charm, and high confidence, perfect for commercial ads and announcements.",
+    Charon: "You are Sharif, a professional Bengali/Bangla male voice artist with a deep, rich, and highly resonant voice. Read with profound depth, serious authority, and deliberate dramatic pauses, perfect for history documentaries or deep storytelling.",
+    Hermes: "You are Soumya, a warm, friendly, and completely casual Bengali/Bangla male podcaster. Speak in a conversational, daily-life, natural, and friendly tone.",
+    Aoede: "You are Ananya, a highly creative and emotional Bengali/Bangla female voice artist. Read with deep artistic sensitivity, beautiful poetic modulation, and sweet emotional resonance, perfect for poetry recitation and dramatic stories.",
+    Fenrir: "You are Ripon, a highly powerful, bold, and motivational Bengali/Bangla male speaker. Read with commanding passion, high energy, and inspiring confidence, perfect for motivational speeches, dynamic coaching, and bold declarations.",
+    Anemone: "You are Nabila, a sweet, soft, and exceptionally soothing female Bengali/Bangla voice artist. Read in a quiet, peaceful, slow-paced, and relaxing whisper-like voice, perfect for guided meditation, relaxing audiobooks, and wellness sleep guides."
+  };
+
+  const baseInstruction = voiceInstructions[baseVoice] || "Speak in a clear, natural Bengali/Bangla human-like voice.";
+  
+  if (dialectPrompt) {
+    styledPrompt = `${baseInstruction} CRITICAL: ${dialectPrompt} ${modifier} Avoid all robotic cadences, speak with human-like breathing pauses. Text: ${textToSpeak}`;
+  } else {
+    styledPrompt = `${baseInstruction} ${modifier} Avoid all robotic cadences, speak with human-like breathing pauses and standard pronunciation. Text: ${textToSpeak}`;
   }
   
   try {
@@ -176,7 +365,7 @@ app.post("/api/tts", async (req, res) => {
         responseModalities: ["AUDIO"],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: selectedVoice },
+            prebuiltVoiceConfig: { voiceName: baseVoice },
           },
         },
       },
@@ -198,14 +387,37 @@ app.post("/api/tts", async (req, res) => {
     const wavBuffer = pcmToWav(pcmBuffer, 24000);
     const base64Wav = wavBuffer.toString("base64");
 
-    res.json({
+    const responseData = {
       success: true,
       pcmData: base64Pcm,
       wavData: base64Wav,
       voice: selectedVoice,
+    };
+
+    // Save to cache asynchronously
+    fs.writeFile(cachePath, JSON.stringify(responseData), (err) => {
+      if (err) console.error("Failed to write to TTS cache:", err);
     });
+
+    res.json(responseData);
   } catch (err: any) {
     console.error("Gemini TTS Error:", err);
+    
+    const errMsg = err?.message || (typeof err === "object" ? JSON.stringify(err) : String(err)) || "";
+    const isQuotaError = errMsg.includes("429") || 
+                        errMsg.includes("quota") || 
+                        errMsg.includes("RESOURCE_EXHAUSTED") || 
+                        errMsg.includes("limit: 10") ||
+                        errMsg.includes("Quota exceeded");
+
+    if (isQuotaError) {
+      res.status(429).json({
+        error: "দুঃখিত, Gemini TTS-এর দৈনিক ফ্রি ব্যবহারের লিমিট (১০টি রিকোয়েস্ট) শেষ হয়ে গেছে। দয়া করে Settings > Secrets-এ গিয়ে আপনার নিজের API Key যোগ করুন, অথবা আগামীকালের জন্য অপেক্ষা করুন।",
+        isQuotaExceeded: true
+      });
+      return;
+    }
+
     res.status(500).json({
       error: err?.message || "An unexpected error occurred while generating speech.",
     });
