@@ -81,6 +81,18 @@ function pcmToWav(pcmBuffer: Buffer, sampleRate: number = 24000): Buffer {
 // API endpoint for Text-to-Speech
 app.post("/api/tts", async (req, res) => {
   const { text, voice, settings } = req.body;
+  const customApiKey = req.headers["x-api-key"] as string | undefined;
+
+  const clientAI = customApiKey 
+    ? new GoogleGenAI({
+        apiKey: customApiKey,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          },
+        },
+      })
+    : ai;
 
   if (!text || typeof text !== "string") {
     res.status(400).json({ error: "Text is required and must be a string." });
@@ -329,7 +341,7 @@ app.post("/api/tts", async (req, res) => {
       dialectPrompt = `Speak strictly in the standard pronunciation of the following translated words in ${dialectName}.`;
       try {
         console.log(`Rewriting text to ${dialectName} using gemini-2.5-flash...`);
-        const rewriteResponse = await ai.models.generateContent({
+        const rewriteResponse = await clientAI.models.generateContent({
           model: "gemini-2.5-flash",
           contents: `You are an expert linguist specializing in Bengali regional dialects and colloquial phonetics. 
 Translate and rewrite the following standard Bengali text into authentic, extremely natural, and pure ${dialectName}.
@@ -438,7 +450,7 @@ Standard Bengali Text: ${text}`
   
   try {
     // Call the Gemini TTS API model
-    const response = await ai.models.generateContent({
+    const response = await clientAI.models.generateContent({
       model: "gemini-3.1-flash-tts-preview",
       contents: [{ parts: [{ text: styledPrompt }] }],
       config: {

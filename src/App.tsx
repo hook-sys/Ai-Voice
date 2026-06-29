@@ -43,7 +43,9 @@ import {
   BookOpen,
   FolderDot,
   ArrowRight,
-  UserCheck
+  UserCheck,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { AudioItem, VoiceId } from "./types";
 import { VOICE_PROFILES, createMp3EncoderWorker, arrayBufferToBase64 } from "./utils";
@@ -134,6 +136,8 @@ export default function App() {
   const [showCloneModal, setShowCloneModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showApiKeysModal, setShowApiKeysModal] = useState(false);
+  const [customGeminiKey, setCustomGeminiKey] = useState<string>(() => localStorage.getItem("GEMINI_USER_API_KEY") || "");
+  const [showGeminiKey, setShowGeminiKey] = useState<boolean>(false);
   const [testingVoiceId, setTestingVoiceId] = useState<string | null>(null);
 
   // Background Cloned Voices (Simulated addition)
@@ -390,7 +394,10 @@ export default function App() {
       try {
         const response = await fetch("/api/tts", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            ...(localStorage.getItem("GEMINI_USER_API_KEY") ? { "x-api-key": localStorage.getItem("GEMINI_USER_API_KEY")! } : {})
+          },
           body: JSON.stringify({
             text: item.text,
             voice: item.voiceId,
@@ -480,7 +487,10 @@ export default function App() {
     try {
       const response = await fetch("/api/tts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(localStorage.getItem("GEMINI_USER_API_KEY") ? { "x-api-key": localStorage.getItem("GEMINI_USER_API_KEY")! } : {})
+        },
         body: JSON.stringify({
           text: text.trim(),
           voice: selectedVoice,
@@ -621,7 +631,10 @@ export default function App() {
 
       const response = await fetch("/api/tts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(localStorage.getItem("GEMINI_USER_API_KEY") ? { "x-api-key": localStorage.getItem("GEMINI_USER_API_KEY")! } : {})
+        },
         body: JSON.stringify({
           text: textToUse,
           voice: voiceId,
@@ -2254,11 +2267,83 @@ export default function App() {
             </button>
 
             <div className="text-center space-y-1 pb-2 border-b border-[#1b213b]">
-              <h3 className="text-base font-black text-white">Developer API Access Keys</h3>
-              <p className="text-xs text-zinc-400">Integrate AI Voice Studio outputs into external client systems.</p>
+              <h3 className="text-base font-black text-white">API Keys & Credentials</h3>
+              <p className="text-xs text-zinc-400">কনফিগার করুন এবং ভয়েস জেনারেশন করুন আপনার নিজস্ব কী-এর মাধ্যমে।</p>
             </div>
 
-            <div className="space-y-3.5 pt-2">
+            <div className="space-y-4 pt-2">
+              {/* Custom Gemini API Key configuration */}
+              <div className="space-y-3 bg-[#161a35]/40 border border-[#21284a] rounded-2xl p-4">
+                <div className="flex justify-between items-center pb-2 border-b border-[#21284a]">
+                  <h4 className="text-xs font-black text-white flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                    Gemini API Key কনফিগারেশন
+                  </h4>
+                  {customGeminiKey ? (
+                    <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] px-2 py-0.5 rounded-full font-bold">
+                      সক্রিয় (Active)
+                    </span>
+                  ) : (
+                    <span className="bg-[#1d244a] text-zinc-400 text-[9px] px-2 py-0.5 rounded-full font-bold">
+                      ডিফল্ট ফ্রি কী (Default Key)
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-[10px] text-zinc-400 leading-relaxed">
+                  আপনার নিজস্ব Gemini API Key যোগ করলে দৈনিক ফ্রি ১০টি জেনারেশনের লিমিট উঠে যাবে এবং আপনি সম্পূর্ণ আনলিমিটেড ভাবে আমাদের সব ভয়েস ব্যবহার করতে পারবেন।
+                </p>
+
+                <div>
+                  <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block mb-1.5">Your Gemini API Key</label>
+                  <div className="flex gap-1.5 relative">
+                    <input
+                      type={showGeminiKey ? "text" : "password"}
+                      value={customGeminiKey}
+                      onChange={(e) => setCustomGeminiKey(e.target.value)}
+                      placeholder="AIzaSy..."
+                      className="flex-grow bg-[#0f1325] border border-[#21284a] focus:border-indigo-500/50 rounded-xl py-2 pl-3 pr-10 text-xs text-white font-mono placeholder:text-zinc-600 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowGeminiKey(!showGeminiKey)}
+                      className="absolute right-3 top-2.5 text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                      {showGeminiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1.5">
+                  <button
+                    onClick={() => {
+                      if (customGeminiKey.trim()) {
+                        localStorage.setItem("GEMINI_USER_API_KEY", customGeminiKey.trim());
+                        triggerNotification("Gemini API Key সফলভাবে সংরক্ষণ করা হয়েছে!", "success");
+                      } else {
+                        triggerNotification("অনুগ্রহ করে একটি সঠিক API Key লিখুন।", "error");
+                      }
+                    }}
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] py-2 rounded-lg transition-all cursor-pointer flex items-center justify-center uppercase"
+                  >
+                    Save Key
+                  </button>
+                  {customGeminiKey && (
+                    <button
+                      onClick={() => {
+                        localStorage.removeItem("GEMINI_USER_API_KEY");
+                        setCustomGeminiKey("");
+                        triggerNotification("Gemini API Key সফলভাবে মুছে ফেলা হয়েছে এবং ডিফল্ট কী সচল হয়েছে।", "success");
+                      }}
+                      className="bg-[#1c223f] hover:bg-red-950/20 hover:text-red-400 text-zinc-400 border border-[#21284a] font-bold text-[10px] px-3 py-2 rounded-lg transition-all cursor-pointer flex items-center justify-center"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Developer Client API Access Token */}
               <div>
                 <label className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block mb-1.5">Studio API Token</label>
                 <div className="flex gap-2">
