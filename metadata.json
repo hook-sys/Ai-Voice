@@ -1,0 +1,6 @@
+{
+  "name": "Bangla Text-to-Voice Generator",
+  "description": "A minimalist, responsive Text-to-Voice generator for Bangla supporting male and female voice profiles, history management, and MP3 downloading.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
