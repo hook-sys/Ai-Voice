@@ -186,7 +186,7 @@ export default function App() {
   const [expandedTextId, setExpandedTextId] = useState<string | null>(null);
 
   // Voice Library section tabs
-  const [libraryCategoryFilter, setLibraryCategoryFilter] = useState<"All" | "Male" | "Female" | "Premium" | "Studio">("All");
+  const [libraryCategoryFilter, setLibraryCategoryFilter] = useState<"All" | "Professional" | "Regional" | "Male" | "Female" | "Premium" | "Studio">("All");
 
   // Refs for audio objects and waveforms
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -754,6 +754,8 @@ export default function App() {
   // Filtered Voice Library
   const filteredLibrary = VOICE_PROFILES.filter((voice) => {
     if (libraryCategoryFilter === "All") return true;
+    if (libraryCategoryFilter === "Professional") return voice.id.startsWith("Pro_");
+    if (libraryCategoryFilter === "Regional") return voice.id.includes("_") && !voice.id.startsWith("Pro_");
     if (libraryCategoryFilter === "Male") return voice.gender === "Male";
     if (libraryCategoryFilter === "Female") return voice.gender === "Female";
     if (libraryCategoryFilter === "Premium") return ["Zephyr", "Puck", "Fenrir"].includes(voice.id);
@@ -1252,11 +1254,12 @@ export default function App() {
                       className="w-full bg-[#181e3a]/40 border border-[#21284a] rounded-xl py-2 pl-3 pr-8 text-xs text-white appearance-none focus:outline-none focus:border-indigo-500/40 cursor-pointer"
                     >
                       {VOICE_PROFILES.map((p) => {
-                        const idx = AVATAR_LIST.findIndex((a) => a.id === p.id);
-                        const label = AVATAR_LIST[idx]?.label || p.id;
+                        const isCore = !p.id.includes("_");
+                        const labelText = p.banglaName || p.name;
+                        const suffix = p.banglaCategory || (isCore ? "স্ট্যান্ডার্ড" : "আঞ্চলিক");
                         return (
                           <option key={p.id} value={p.id} className="bg-[#111529]">
-                            {label} ({p.name})
+                            {labelText} — ({suffix})
                           </option>
                         );
                       })}
@@ -1887,7 +1890,7 @@ export default function App() {
 
                 {/* Sub category filter tabs */}
                 <div className="flex items-center gap-1 bg-[#181e3a]/40 border border-[#21284a] p-1 rounded-xl overflow-x-auto scrollbar-none">
-                  {["All", "Male", "Female", "Premium", "Studio"].map((cat) => (
+                  {["All", "Professional", "Regional", "Male", "Female", "Premium", "Studio"].map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setLibraryCategoryFilter(cat as any)}
@@ -1895,7 +1898,7 @@ export default function App() {
                         libraryCategoryFilter === cat ? "bg-indigo-600 text-white" : "text-zinc-500 hover:text-zinc-300"
                       }`}
                     >
-                      {cat === "All" ? "All" : cat === "Male" ? "Male" : cat === "Female" ? "Female" : cat === "Premium" ? "Premium" : "Studio"}
+                      {cat === "All" ? "All" : cat === "Professional" ? "Pro" : cat === "Regional" ? "Regional" : cat === "Male" ? "Male" : cat === "Female" ? "Female" : cat === "Premium" ? "Premium" : "Studio"}
                     </button>
                   ))}
                 </div>
@@ -1937,10 +1940,10 @@ export default function App() {
                           )}
                           <div className="text-left min-w-0">
                             <h4 className="text-xs font-black text-white leading-tight truncate">
-                              {avLabel}
+                              {voice.banglaName || voice.name}
                             </h4>
-                            <span className="block text-[9px] text-zinc-500 leading-none truncate mt-0.5">
-                              {voice.name} • {voice.gender === "Male" ? "পুরুষ" : "নারী"}
+                            <span className="block text-[9px] text-zinc-400 leading-none truncate mt-1">
+                              {voice.name} • {voice.gender === "Male" ? "পুরুষ" : "নারী"} • {voice.banglaCategory || "স্ট্যান্ডার্ড"}
                             </span>
                           </div>
                         </div>

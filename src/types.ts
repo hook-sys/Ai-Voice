@@ -5,7 +5,7 @@ export interface VoiceProfile {
   name: string;
   banglaName: string;
   gender: "Male" | "Female";
-  category: "ads" | "story" | "news" | "casual" | "motivational";
+  category: "ads" | "story" | "news" | "casual" | "motivational" | "documentary" | "education" | "support" | "presentation" | "poetry" | "podcast" | "meditation";
   banglaCategory: string;
   avatarText: string;
   description: string;

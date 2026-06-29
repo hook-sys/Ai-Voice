@@ -880,6 +880,226 @@ export const VOICE_PROFILES: VoiceProfile[] = [
     avatarText: "আ",
     description: "Mysterious, intense, and suspenseful male voice, ideal for horror audiobooks, thriller narration, and mystery stories.",
     banglaDescription: "রোমাঞ্চকর, গা শিউরে ওঠা রহস্যময় থ্রিলার কণ্ঠ। ভৌতিক গল্প, গোয়েন্দা উপন্যাস ও হরর অডিওবুকের আবহ সৃষ্টি করতে সক্ষম।"
+  },
+  {
+    id: "Pro_Female_11",
+    name: "Farida",
+    banglaName: "ফরিদা (সংবাদ উপস্থাপক ২)",
+    gender: "Female",
+    category: "news",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "ফ",
+    description: "Senior news presenter voice, featuring immaculate classical Bangla pronunciation and serious delivery.",
+    banglaDescription: "প্রবীণ নারী সংবাদ পাঠক কণ্ঠ। অত্যন্ত প্রাঞ্জল, গম্ভীর ও মার্জিত বাংলা বাচনভঙ্গি।"
+  },
+  {
+    id: "Pro_Male_11",
+    name: "Aslam",
+    banglaName: "আসলাম (সংবাদ উপস্থাপক ২)",
+    gender: "Male",
+    category: "news",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "আ",
+    description: "Senior male news presenter, offering deep authority and newsroom cadence.",
+    banglaDescription: "প্রবীণ পুরুষ সংবাদ পাঠক কণ্ঠ। অসাধারণ শব্দ উচ্চারণ ও গম্ভীর বাচনভঙ্গি।"
+  },
+  {
+    id: "Pro_Female_12",
+    name: "Sabina",
+    banglaName: "সাবিনা (ডকুমেন্টারি ও তথ্যচিত্র)",
+    gender: "Female",
+    category: "documentary",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "সা",
+    description: "Warm, professional female documentary narrator with clean informative tone.",
+    banglaDescription: "আকর্ষক তথ্যচিত্র বর্ণনাকারী নারী কণ্ঠ। ইতিহাস, ভ্রমণ ও তথ্যচিত্রের জন্য সেরা।"
+  },
+  {
+    id: "Pro_Male_12",
+    name: "Kabir",
+    banglaName: "কবীর (ডকুমেন্টারি ও ইতিহাস)",
+    gender: "Male",
+    category: "documentary",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "ক",
+    description: "Deep, mature, and resonant documentary narrator voice.",
+    banglaDescription: "ভারী ও চমৎকার ইতিহাস বর্ণনাকারী পুরুষ কণ্ঠ। গম্ভীর ও তথ্যবহুল বর্ণনায় মানানসই।"
+  },
+  {
+    id: "Pro_Female_13",
+    name: "Rifat",
+    banglaName: "রিফাত (আইটি ও প্রযুক্তি টিউটর)",
+    gender: "Female",
+    category: "education",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "রি",
+    description: "Educational IT tutor voice, clear, helpful, and steady.",
+    banglaDescription: "বিজ্ঞান, ফ্রিল্যান্সিং ও আইটি টিউটোরিয়াল উপযোগী স্পষ্ট ও সহযোগী নারী কণ্ঠ।"
+  },
+  {
+    id: "Pro_Male_13",
+    name: "Tareq",
+    banglaName: "তারেক (বিজ্ঞান ও আইটি টিউটর)",
+    gender: "Male",
+    category: "education",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "তা",
+    description: "Educational instructor voice with high structural clarity.",
+    banglaDescription: "শিক্ষামূলক ও প্রফেশনাল অনলাইন কোর্স উপস্থাপনার জন্য চমৎকার পুরুষ কণ্ঠ।"
+  },
+  {
+    id: "Pro_Female_14",
+    name: "Shamima",
+    banglaName: "শামীমা (গ্রাহক সেবা প্রতিনিধি ২)",
+    gender: "Female",
+    category: "support",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "শা",
+    description: "Polite customer support agent, soft-spoken, comforting, and helpful.",
+    banglaDescription: "পরম বিনয়ী কাস্টমার কেয়ার প্রতিনিধি কণ্ঠ। সেবা ও সমাধানমূলক কণ্ঠস্বর।"
+  },
+  {
+    id: "Pro_Male_14",
+    name: "Rafiq",
+    banglaName: "রফিক (सहায়ক সেবা প্রতিনিধি)",
+    gender: "Male",
+    category: "support",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "র",
+    description: "Polite, supportive male customer executive voice.",
+    banglaDescription: "বিনয়ী ও পরম সহযোগী কাস্টমার কেয়ার ও সাপোর্ট প্রতিনিধি পুরুষ কণ্ঠ।"
+  },
+  {
+    id: "Pro_Female_15",
+    name: "Nusrat",
+    banglaName: "নুসরাত (বিজনেস ও পিচ উপস্থাপক)",
+    gender: "Female",
+    category: "presentation",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "নু",
+    description: "Corporate business presenter with modern, confident marketing tone.",
+    banglaDescription: "কর্পোরেট আইডিয়া ও স্টার্টআপ পিচ উপস্থাপনার জন্য আত্মবিশ্বাসী ও আধুনিক নারী কণ্ঠ।"
+  },
+  {
+    id: "Pro_Male_15",
+    name: "Jamil",
+    banglaName: "জামিল (কর্পোরেট ফাইন্যান্স)",
+    gender: "Male",
+    category: "presentation",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "জা",
+    description: "Confident corporate advisor voice, perfect for financial presentations.",
+    banglaDescription: "কর্পোরেট বোর্ড মিটিং, বাজেট বিশ্লেষণ ও ফাইন্যান্স উপস্থাপনার জন্য গম্ভীর পুরুষ কণ্ঠ।"
+  },
+  {
+    id: "Pro_Female_16",
+    name: "Mahjabin",
+    banglaName: "মেহজাবিন (কবিতা আবৃত্তি ও নাটক)",
+    gender: "Female",
+    category: "poetry",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "মে",
+    description: "Poetic and highly emotional recitation artist voice.",
+    banglaDescription: "আবেগময় কবিতা আবৃত্তি, নাটকের সংলাপ ও শ্রুতি নাটকের জন্য দারুণ সমৃদ্ধ কণ্ঠ।"
+  },
+  {
+    id: "Pro_Male_16",
+    name: "Sourav",
+    banglaName: "সৌরভ (আবৃত্তি ও কবিতা)",
+    gender: "Male",
+    category: "poetry",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "সৈ",
+    description: "Theatrical poetry reciter with beautiful rhythm and deep pitch.",
+    banglaDescription: "কাব্যিক ছন্দোময় উচ্চ নাটকীয়তা সম্পন্ন আবৃত্তি ও আবহের জন্য অসাধারণ কণ্ঠ।"
+  },
+  {
+    id: "Pro_Female_17",
+    name: "Nargis",
+    banglaName: "নার্গিস (পডকাস্ট সহ-হোস্ট)",
+    gender: "Female",
+    category: "podcast",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "না",
+    description: "Energetic and lively conversational podcast voice.",
+    banglaDescription: "প্রাণবন্ত পডকাস্ট, আড্ডা ও লাইভ টকশো-এর জন্য অত্যন্ত চমৎকার দৈনিক কথ্য কণ্ঠ।"
+  },
+  {
+    id: "Pro_Male_17",
+    name: "Nahid",
+    banglaName: "নাহিদ (টেক পডকাস্টার)",
+    gender: "Male",
+    category: "podcast",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "না",
+    description: "Casual, relatable tech podcaster with friendly pacing.",
+    banglaDescription: "প্রযুক্তি পডকাস্ট ও সমসাময়িক বিষয়ে আড্ডার ছলে কথা বলার উপযোগী প্রফেশনাল পুরুষ কণ্ঠ।"
+  },
+  {
+    id: "Pro_Female_18",
+    name: "Keya",
+    banglaName: "কেয়া (বাণিজ্যিক বিজ্ঞাপন ২)",
+    gender: "Female",
+    category: "ads",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "কে",
+    description: "High-energy commercial advertisement voiceover female artist.",
+    banglaDescription: "নতুন পণ্য প্রচার ও উৎসবের অফার ঘোষণার জন্য অত্যন্ত মার্জিত ও প্রলুব্ধকর নারী কণ্ঠ।"
+  },
+  {
+    id: "Pro_Male_18",
+    name: "Imtiaz",
+    banglaName: "ইমতিয়াজ (ব্র্যান্ড প্রোমোশন)",
+    gender: "Male",
+    category: "ads",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "ই",
+    description: "Energetic and persuasive brand ad promoter male voice.",
+    banglaDescription: "পণ্য ও ব্র্যান্ডের প্রচারের জন্য আকর্ষণীয়, আত্মবিশ্বাসী ও শক্তিশালী প্রচার কণ্ঠ।"
+  },
+  {
+    id: "Pro_Female_19",
+    name: "Rumana",
+    banglaName: "রুমানা (ধ্যান ও ইয়োগা গাইড)",
+    gender: "Female",
+    category: "meditation",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "রু",
+    description: "Calm, slow, and exceptionally soothing meditation guide voice.",
+    banglaDescription: "মন শান্ত করা ইয়োগা ও মেডিটেশন গাইড কণ্ঠ। মায়াময় ও ধীরস্থির আবাহন।"
+  },
+  {
+    id: "Pro_Male_19",
+    name: "Zakir",
+    banglaName: "জাকির (মাইন্ডফুলনেস ইন্সট্রাক্টর)",
+    gender: "Male",
+    category: "meditation",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "জা",
+    description: "Low-pitch calming and reassuring mindfulness advisor voice.",
+    banglaDescription: "মানসিক প্রশান্তি ও মেডিটেশন সেশনের আবহ তৈরির জন্য উপযোগী গভীর ধীরস্থির কণ্ঠ।"
+  },
+  {
+    id: "Pro_Female_20",
+    name: "Mimi",
+    banglaName: "মিমি (কার্টুন ও রূপকথা)",
+    gender: "Female",
+    category: "story",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "মি",
+    description: "Expressive children storyteller and animation dubbing voice.",
+    banglaDescription: "লিপ-সিঙ্ক ডাবিং, কমিক কার্টুন চরিত্র ও ছোটদের গল্পের জন্য দারুণ হাস্যোজ্জ্বল কণ্ঠ।"
+  },
+  {
+    id: "Pro_Male_20",
+    name: "Shohel",
+    banglaName: "সোহেল (থ্রিলার অডিওবুক)",
+    gender: "Male",
+    category: "story",
+    banglaCategory: "প্রফেশনাল",
+    avatarText: "সো",
+    description: "Low, dramatic, tense storytelling voice for audiobooks.",
+    banglaDescription: "উপন্যাস পাঠ, রোমাঞ্চ ও ভৌতিক রোমাঞ্চের গল্প পাঠের জন্য রোমহর্ষক ও গম্ভীর কণ্ঠ।"
   }
 ];
 
